@@ -26,7 +26,7 @@ ten_days_dict = list()
 one_flag = False
 ten_flag = False
 
-def one_day():
+def one_day() -> None:
     """
     Функция потока получает данные от gismeteo для сегодняшней даты
     и для населенных пунктов, для которых url'ы перечислены в списке url,
@@ -58,6 +58,8 @@ def one_day():
         # список моментов времени прогнозов
         times = list()
         time_format = lambda x: f"0{x}" if x < 10 else f"{x}"
+        # === начало ===
+        # это проверка добавлена когда в структуре html-документа метка времени стала меняться с текстом
         format2 = "Фактические данные от: %Y-%m-%d %H:%M:%S (UTC)"
         for item in row_time[0].contents:
             if item["title"].split()[0] == "Фактические":
@@ -67,12 +69,24 @@ def one_day():
                 format3 = item["title"].split(",")[0]
                 full_dt = dt.datetime.strptime(item["title"], format3 + ", UTC: %Y-%m-%d %H:%M:%S") + dt.timedelta(hours = 5)
                 times.append(f"{time_format(full_dt.hour)}:{time_format(full_dt.minute)}")
+        # === конец ===
         result["times"] = times
-        row_temperature = soup_main.find_all("div", class_ = "widget-row-chart widget-row-chart-temperature")
+        count_hours = len(times)
+        row_temperature = soup_main.find_all("div", class_ = "widget-row-chart widget-row-chart-temperature row-with-caption")
         # список прогнозов
         temperatures = list()
-        for item in row_temperature[0].contents[0].find_all("span", class_ = "unit unit_temperature_c"):
+        # === начало ===
+        # этот код сделан после изменения структуры html-документа
+        # положение значений температуры перенесено сайтом в другое место
+        indx_for_temperatures = 0
+        for item in row_temperature[0].contents[indx_for_temperatures].find_all("span", class_ = "unit unit_temperature_c"):
             temperatures.append(item.text)
+        if len(temperatures) != count_hours:
+            indx_for_temperatures = 1
+            temperatures = list()
+            for item in row_temperature[0].contents[indx_for_temperatures].find_all("span", class_ = "unit unit_temperature_c"):
+                temperatures.append(item.text)
+        # === конец ===
         result["temperatures"] = temperatures
         row_precipitation = soup_main.find_all("div", class_ = "widget-row widget-row-precipitation-bars row-with-caption")
         # список осадков
@@ -85,7 +99,7 @@ def one_day():
     file.write("Finish 'one' thread...\n")
     file.close()
 
-def ten_days():
+def ten_days() -> None:
     """
     Функция потока получает данные от gismeteo на 10 дней
     для населенных пунктов, для которых url'ы перечислены в списке url,
@@ -119,6 +133,7 @@ def ten_days():
         for item in row_day[0].contents:
             days.append(f"{item.contents[0].text}\n{item.contents[1].text}")
         result["days"] = days
+        count_days = len(days)
         max_temperature = soup_main.find_all("div", class_ = "maxt")
         # список максимальной температуры
         maxt = list()
@@ -126,6 +141,8 @@ def ten_days():
             t = item.find_all("span", class_ = "unit unit_temperature_c")
             if len(t) > 0:
                 maxt.append(t[0].text)
+                if len(maxt) == count_days:
+                    break
             else:
                 break
         result["maxt"] = maxt
@@ -136,6 +153,8 @@ def ten_days():
             t = item.find_all("span", class_ = "unit unit_temperature_c")
             if len(t) > 0:
                 mint.append(t[0].text)
+                if len(mint) == count_days:
+                    break
             else:
                 break
         result["mint"] = mint
@@ -298,7 +317,7 @@ class App(tk.Tk):
             self.city1["font"] = ("Arial", 12)
             self.city_datas(1)
 
-    def LoadInitialSettings(self):
+    def LoadInitialSettings(self) -> None:
         cfg = open("init.cfg")
         for l in cfg:
             if l[0] == "#":
@@ -309,7 +328,7 @@ class App(tk.Tk):
                 
         cfg.close()
 
-    def InitMainWindow(self):
+    def InitMainWindow(self) -> None:
         # заголовок окна
         self.title("Gismeteo")
         
@@ -329,21 +348,21 @@ class App(tk.Tk):
         # e.g. "WM_SAVE_YOURSELF" or "WM_DELETE_WINDOW".
         self.protocol("WM_DELETE_WINDOW", self.window_deleted)
 
-    def getWindowGeometry(self):
+    def getWindowGeometry(self) -> None:
         geometry_window = self.geometry()
         list_ = geometry_window.split("+")
         self.state["x_position_window"] = list_[1]
         self.state["y_position_window"] = list_[2]
         [self.state["width_window"], self.state["height_window"]] = list_[0].split("x")
 
-    def window_resize(self, event):
+    def window_resize(self, event) -> None:
         self.getWindowGeometry()
 
         # или так
         #h = event.height
         #w = event.width
 
-    def window_deleted(self, event = None):
+    def window_deleted(self, event = None) -> None:
         #x = window.winfo_screenwidth() ширина экрана
         #y = window.winfo_screenheight() высота экрана
         self.getWindowGeometry()
